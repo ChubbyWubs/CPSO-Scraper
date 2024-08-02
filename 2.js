@@ -12,23 +12,22 @@ const extractDataFromPage = async (page) => {
             const name = nameElement ? nameElement.textContent.trim() : null;
             const link = nameElement ? nameElement.href : null;
 
-            const locationHeader = Array.from(doctor.querySelectorAll('h4')).find(h4 => h4.textContent.includes('Location of Practice:'));
+            const locationHeader = Array.from(doctor.querySelectorAll('h4')).find(h4 => h4.textContent.includes('Location of Practice'));
             const locationElement = locationHeader ? locationHeader.nextElementSibling : null;
             let address = "DNE", phoneNumber = "DNE", faxNumber = "DNE";
 
             if (locationElement) {
-                address = locationElement.textContent.trim().replace(/Phone:.*|Fax:.*/g, '').replace(/\n/g, ', ');
+                address = locationElement.textContent.trim().replace(/\s+/g, ' ').replace(/Â/g, '');
 
-                const phoneMatch = locationElement.innerHTML.match(/Phone:\s*(\(\d{3}\)\s*\d{3}-\d{4})/);
-                const faxMatch = locationElement.innerHTML.match(/Fax:\s*(\(\d{3}\)\s*\d{3}-\d{4})/);
-
-                if (phoneMatch) {
-                    phoneNumber = phoneMatch[1].trim();
-                }
-
-                if (faxMatch) {
-                    faxNumber = faxMatch[1].trim();
-                }
+                const paragraphs = locationElement.parentElement.querySelectorAll('p');
+                paragraphs.forEach(p => {
+                    if (p.textContent.includes('Phone:')) {
+                        phoneNumber = p.textContent.split('Phone:')[1].split('\n')[0].trim();
+                    }
+                    if (p.textContent.includes('Fax:')) {
+                        faxNumber = p.textContent.split('Fax:')[1].split('\n')[0].trim();
+                    }
+                });
             }
 
             results.push({ name, link, address, phoneNumber, faxNumber });
