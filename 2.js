@@ -17,17 +17,24 @@ const extractDataFromPage = async (page) => {
             let address = "DNE", phoneNumber = "DNE", faxNumber = "DNE";
 
             if (locationElement) {
-                address = locationElement.textContent.trim().replace(/\s+/g, ' ').replace(/Â/g, '');
+                const locationText = locationElement.textContent.trim().replace(/Â/g, '').replace(/\s+/g, ' ');
+                const phoneIndex = locationText.indexOf('Phone:');
+                const faxIndex = locationText.indexOf('Fax:');
 
-                const paragraphs = locationElement.parentElement.querySelectorAll('p');
-                paragraphs.forEach(p => {
-                    if (p.textContent.includes('Phone:')) {
-                        phoneNumber = p.textContent.split('Phone:')[1].split('\n')[0].trim();
-                    }
-                    if (p.textContent.includes('Fax:')) {
-                        faxNumber = p.textContent.split('Fax:')[1].split('\n')[0].trim();
-                    }
-                });
+                if (phoneIndex !== -1) {
+                    address = locationText.substring(0, phoneIndex).trim();
+                    phoneNumber = locationText.substring(phoneIndex, faxIndex !== -1 ? faxIndex : locationText.length).replace('Phone:', '').trim();
+                } else {
+                    address = locationText;
+                }
+
+                if (faxIndex !== -1) {
+                    faxNumber = locationText.substring(faxIndex).replace('Fax:', '').trim();
+                }
+
+                // Clean up any remaining unwanted characters from phone and fax numbers
+                phoneNumber = phoneNumber.replace(/[^0-9()\- ]/g, '');
+                faxNumber = faxNumber.replace(/[^0-9()\- ]/g, '');
             }
 
             results.push({ name, link, address, phoneNumber, faxNumber });
@@ -72,7 +79,7 @@ const saveDataToCsv = (data) => {
                 }
             };
 
-            setCheckedValue('input[name="Gender"][value="M"]', true);
+            setCheckedValue('input[name="Gender"][value=""]', true);
             setCheckedValue('input[name="DocType"][value="rdoDocTypeFamly"]', true);
 
             // Click the submit button
@@ -87,7 +94,7 @@ const saveDataToCsv = (data) => {
         await page.waitForNavigation({ waitUntil: 'networkidle2' });
 
         const allResults = [];
-        const totalPages = 3;
+        const totalPages = 100;
         let pageCount = 1;
         let hasNextPage = true;
 
