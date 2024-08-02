@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "csv-writer": "^1.6.0",
     "puppeteer": "^22.15.0"
   }
 }

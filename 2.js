@@ -12,32 +12,26 @@ const extractDataFromPage = async (page) => {
             const name = nameElement ? nameElement.textContent.trim() : null;
             const link = nameElement ? nameElement.href : null;
 
-            const locationHeader = Array.from(doctor.querySelectorAll('h4')).find(h4 => h4.textContent.includes('Location of practice'));
+            const locationHeader = Array.from(doctor.querySelectorAll('h4')).find(h4 => h4.textContent.includes('Location of Practice:'));
             const locationElement = locationHeader ? locationHeader.nextElementSibling : null;
-            let streetAddress = null, cityInfo = null, postalCode = null, phoneNumber = null, faxNumber = null;
+            let address = "DNE", phoneNumber = "DNE", faxNumber = "DNE";
 
             if (locationElement) {
-                const locationParts = locationElement.innerHTML.split('<br>').map(part => part.trim());
-                const phoneFaxIndex = locationParts.findIndex(part => part.startsWith('Phone:') || part.startsWith('Fax:'));
+                address = locationElement.textContent.trim().replace(/Phone:.*|Fax:.*/g, '').replace(/\n/g, ', ');
 
-                // Assume everything before phoneFaxIndex is the address
-                const addressParts = phoneFaxIndex >= 0 ? locationParts.slice(0, phoneFaxIndex) : locationParts;
-                streetAddress = addressParts.join(', ');
+                const phoneMatch = locationElement.innerHTML.match(/Phone:\s*(\(\d{3}\)\s*\d{3}-\d{4})/);
+                const faxMatch = locationElement.innerHTML.match(/Fax:\s*(\(\d{3}\)\s*\d{3}-\d{4})/);
 
-                // Extract phone and fax numbers
-                phoneNumber = locationParts.find(part => part.startsWith('Phone:'))?.replace('Phone:', '').trim() || null;
-                faxNumber = locationParts.find(part => part.startsWith('Fax:'))?.replace('Fax:', '').trim() || null;
+                if (phoneMatch) {
+                    phoneNumber = phoneMatch[1].trim();
+                }
 
-                // Split streetAddress further if needed
-                const addressLines = streetAddress.split(', ');
-                if (addressLines.length >= 3) {
-                    streetAddress = addressLines.slice(0, -2).join(', ');
-                    cityInfo = addressLines.slice(-2, -1)[0];
-                    postalCode = addressLines.slice(-1)[0];
+                if (faxMatch) {
+                    faxNumber = faxMatch[1].trim();
                 }
             }
 
-            results.push({ name, link, streetAddress, cityInfo, postalCode, phoneNumber, faxNumber });
+            results.push({ name, link, address, phoneNumber, faxNumber });
         });
 
         return results;
@@ -50,9 +44,7 @@ const saveDataToCsv = (data) => {
         header: [
             { id: 'name', title: 'Name' },
             { id: 'link', title: 'Link' },
-            { id: 'streetAddress', title: 'Street Address' },
-            { id: 'cityInfo', title: 'City Info' },
-            { id: 'postalCode', title: 'Postal Code' },
+            { id: 'address', title: 'Address' },
             { id: 'phoneNumber', title: 'Phone Number' },
             { id: 'faxNumber', title: 'Fax Number' },
         ]
