@@ -47,9 +47,9 @@ const extractDataFromPage = async (page) => {
     });
 };
 
-const saveDataToCsv = async (data, retryCount = 3) => {
+const saveDataToCsv = async (data, filename, retryCount = 3) => {
     const csv = csvWriter({
-        path: 'doctors.csv',
+        path: filename,
         header: [
             { id: 'hyperlink', title: 'Name' },
             { id: 'address', title: 'Address' },
@@ -61,7 +61,7 @@ const saveDataToCsv = async (data, retryCount = 3) => {
     for (let attempt = 0; attempt < retryCount; attempt++) {
         try {
             await csv.writeRecords(data);
-            console.log('Data written to CSV successfully.');
+            console.log(`Data written to ${filename} successfully.`);
             return;
         } catch (error) {
             if (error.code === 'EBUSY') {
@@ -73,7 +73,7 @@ const saveDataToCsv = async (data, retryCount = 3) => {
         }
     }
 
-    console.error('Failed to write to CSV after multiple attempts.');
+    console.error(`Failed to write to ${filename} after multiple attempts.`);
 };
 
 (async () => {
@@ -95,7 +95,7 @@ const saveDataToCsv = async (data, retryCount = 3) => {
                 }
             };
 
-            setCheckedValue('input[name="Gender"][value="M"]', true);
+            setCheckedValue('input[name="Gender"][value=""]', true);
             setCheckedValue('input[name="DocType"][value="rdoDocTypeFamly"]', true);
 
             // Click the submit button
@@ -109,15 +109,22 @@ const saveDataToCsv = async (data, retryCount = 3) => {
 
         await page.waitForNavigation({ waitUntil: 'networkidle2' });
 
-        const allResults = [];
-        const totalPages = 3;
+        let allResults = [];
+        const pagesPerFile = 500;
         let pageCount = 1;
         let hasNextPage = true;
 
-        while (hasNextPage && pageCount <= totalPages) {
+        while (hasNextPage) {
             // Extract data from the current page
             const results = await extractDataFromPage(page);
             allResults.push(...results);
+
+            // Save data to CSV every 500 pages
+            if (pageCount % pagesPerFile === 0) {
+                const filename = `doctors_part${pageCount / pagesPerFile}.csv`;
+                await saveDataToCsv(allResults, filename);
+                allResults = []; // Reset results after saving
+            }
 
             // Update page numbers for the next iteration
             const nextPage = pageCount + 1;
@@ -151,10 +158,13 @@ const saveDataToCsv = async (data, retryCount = 3) => {
             pageCount++;
         }
 
-        await browser.close();
+        // Save remaining data if any
+        if (allResults.length > 0) {
+            const filename = `doctors_part${Math.ceil(pageCount / pagesPerFile)}.csv`;
+            await saveDataToCsv(allResults, filename);
+        }
 
-        // Save results to CSV with retry mechanism
-        await saveDataToCsv(allResults);
+        await browser.close();
     } catch (error) {
         console.error('Error during script execution:', error);
         await browser.close();
