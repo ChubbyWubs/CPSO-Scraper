@@ -37,27 +37,43 @@ const extractDataFromPage = async (page) => {
                 faxNumber = faxNumber.replace(/[^0-9()\- ]/g, '');
             }
 
-            results.push({ name, link, address, phoneNumber, faxNumber });
+            // Create hyperlink for the name
+            const hyperlink = `=HYPERLINK("${link}", "${name}")`;
+
+            results.push({ hyperlink, address, phoneNumber, faxNumber });
         });
 
         return results;
     });
 };
 
-const saveDataToCsv = (data) => {
+const saveDataToCsv = async (data, retryCount = 3) => {
     const csv = csvWriter({
         path: 'doctors.csv',
         header: [
-            { id: 'name', title: 'Name' },
-            { id: 'link', title: 'Link' },
+            { id: 'hyperlink', title: 'Name' },
             { id: 'address', title: 'Address' },
             { id: 'phoneNumber', title: 'Phone Number' },
             { id: 'faxNumber', title: 'Fax Number' },
         ]
     });
 
-    csv.writeRecords(data)
-        .then(() => console.log('Data written to CSV successfully.'));
+    for (let attempt = 0; attempt < retryCount; attempt++) {
+        try {
+            await csv.writeRecords(data);
+            console.log('Data written to CSV successfully.');
+            return;
+        } catch (error) {
+            if (error.code === 'EBUSY') {
+                console.error(`File is busy. Retry attempt ${attempt + 1}/${retryCount}`);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second before retrying
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    console.error('Failed to write to CSV after multiple attempts.');
 };
 
 (async () => {
@@ -79,7 +95,7 @@ const saveDataToCsv = (data) => {
                 }
             };
 
-            setCheckedValue('input[name="Gender"][value=""]', true);
+            setCheckedValue('input[name="Gender"][value="M"]', true);
             setCheckedValue('input[name="DocType"][value="rdoDocTypeFamly"]', true);
 
             // Click the submit button
@@ -94,7 +110,7 @@ const saveDataToCsv = (data) => {
         await page.waitForNavigation({ waitUntil: 'networkidle2' });
 
         const allResults = [];
-        const totalPages = 100;
+        const totalPages = 3;
         let pageCount = 1;
         let hasNextPage = true;
 
@@ -137,8 +153,8 @@ const saveDataToCsv = (data) => {
 
         await browser.close();
 
-        // Save results to CSV
-        saveDataToCsv(allResults);
+        // Save results to CSV with retry mechanism
+        await saveDataToCsv(allResults);
     } catch (error) {
         console.error('Error during script execution:', error);
         await browser.close();
